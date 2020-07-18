@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "550857651969",
+    "firebase_url": "https://samvada-fb242.firebaseio.com",
+    "project_id": "samvada-fb242",
+    "storage_bucket": "samvada-fb242.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:550857651969:android:7ea98c6674c91133184d00",
+        "android_client_info": {
+          "package_name": "com.samvada"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "550857651969-squt649up26pq6vbian6576c720qk1aq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.samvada",
+            "certificate_hash": "3c039eee52c7d28426140b69f8eeadcee6d731d1"
+          }
+        },
+        {
+          "client_id": "550857651969-il4eoiuj6oop37tefmm4b6aggbk5opcs.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCYMmVkuz2gEadOPu_MtPpf1jGyjPyrc0w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "550857651969-il4eoiuj6oop37tefmm4b6aggbk5opcs.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
