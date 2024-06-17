@@ -1,0 +1,86 @@
+using System;
+using System.IO;
+using System.Net.Http;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using Microsoft.SqlServer.Dts.Runtime;
+using Microsoft.SharePoint.Client;
+using Newtonsoft.Json; // Import Newtonsoft.Json
+
+public void Main()
+{
+    string siteUrl = "https://yoursharepointsite";
+    string documentLibraryName = "Shared Documents";
+    string localFilePath = @"C:\path\to\your\file.txt";
+    string sharePointFileName = "file.txt";
+    
+    string tenantId = "your-tenant-id";
+    string clientId = "your-client-id";
+    string clientSecret = "your-client-secret";
+    string resource = "https://yoursharepointsite";
+
+    try
+    {
+        string accessToken = GetAccessToken(tenantId, clientId, clientSecret, resource).Result;
+
+        using (ClientContext context = new ClientContext(siteUrl))
+        {
+            context.ExecutingWebRequest += (sender, e) =>
+            {
+                e.WebRequestExecutor.WebRequest.Headers["Authorization"] = "Bearer " + accessToken;
+            };
+
+            Web web = context.Web;
+            List documentLibrary = web.Lists.GetByTitle(documentLibraryName);
+            context.Load(documentLibrary);
+            context.ExecuteQuery();
+            
+            using (FileStream fs = new FileStream(localFilePath, FileMode.Open))
+            {
+                FileCreationInformation fileInfo = new FileCreationInformation
+                {
+                    ContentStream = fs,
+                    Url = sharePointFileName,
+                    Overwrite = true
+                };
+                
+                Microsoft.SharePoint.Client.File uploadFile = documentLibrary.RootFolder.Files.Add(fileInfo);
+                context.Load(uploadFile);
+                context.ExecuteQuery();
+                
+                MessageBox.Show("File uploaded successfully.");
+            }
+        }
+
+        Dts.TaskResult = (int)ScriptResults.Success;
+    }
+    catch (Exception ex)
+    {
+        MessageBox.Show("Error: " + ex.Message);
+        Dts.TaskResult = (int)ScriptResults.Failure;
+    }
+}
+
+private async Task<string> GetAccessToken(string tenantId, string clientId, string clientSecret, string resource)
+{
+    using (HttpClient httpClient = new HttpClient())
+    {
+        var tokenEndpoint = $"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token";
+        var requestBody = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("client_id", clientId),
+            new KeyValuePair<string, string>("scope", $"{resource}/.default"),
+            new KeyValuePair<string, string>("client_secret", clientSecret),
+            new KeyValuePair<string, string>("grant_type", "client_credentials")
+        });
+
+        HttpResponseMessage response = await httpClient.PostAsync(tokenEndpoint, requestBody);
+        response.EnsureSuccessStatusCode();
+        string responseBody = await response.Content.ReadAsStringAsync();
+
+        dynamic tokenResponse = JsonConvert.DeserializeObject(responseBody); // Deserialize using Newtonsoft.Json
+        string accessToken = tokenResponse.access_token;
+
+        return accessToken;
+    }
+}
