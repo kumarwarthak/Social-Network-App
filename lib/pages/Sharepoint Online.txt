@@ -1,12 +1,15 @@
 using System;
 using System.IO;
 using System.Net.Http;
-using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.SqlServer.Dts.Runtime;
 using Microsoft.SharePoint.Client;
-using Newtonsoft.Json; // Import Newtonsoft.Json
+using Newtonsoft.Json;
+using System.Windows.Forms; // Ensure this is added for MessageBox
+using Microsoft.CSharp; // Add this for dynamic operations
 
+[System.AddIn.AddIn("ScriptMain", Version = "1.0", Publisher = "", Description = "")]
 public partial class ScriptMain : Microsoft.SqlServer.Dts.Tasks.ScriptTask.VSTARTScriptObjectModelBase
 {
     public void Main()
@@ -23,7 +26,7 @@ public partial class ScriptMain : Microsoft.SqlServer.Dts.Tasks.ScriptTask.VSTAR
 
         try
         {
-            string accessToken = GetAccessToken(tenantId, clientId, clientSecret, resource).Result;
+            string accessToken = GetAccessToken(tenantId, clientId, clientSecret, resource).GetAwaiter().GetResult();
 
             using (ClientContext context = new ClientContext(siteUrl))
             {
@@ -50,7 +53,7 @@ public partial class ScriptMain : Microsoft.SqlServer.Dts.Tasks.ScriptTask.VSTAR
                     context.Load(uploadFile);
                     context.ExecuteQuery();
                     
-                    System.Windows.Forms.MessageBox.Show("File uploaded successfully.");
+                    MessageBox.Show("File uploaded successfully.");
                 }
             }
 
@@ -58,7 +61,7 @@ public partial class ScriptMain : Microsoft.SqlServer.Dts.Tasks.ScriptTask.VSTAR
         }
         catch (Exception ex)
         {
-            System.Windows.Forms.MessageBox.Show("Error: " + ex.Message);
+            MessageBox.Show("Error: " + ex.Message);
             Dts.TaskResult = (int)ScriptResults.Failure;
         }
     }
@@ -80,7 +83,7 @@ public partial class ScriptMain : Microsoft.SqlServer.Dts.Tasks.ScriptTask.VSTAR
             response.EnsureSuccessStatusCode();
             string responseBody = await response.Content.ReadAsStringAsync();
 
-            dynamic tokenResponse = JsonConvert.DeserializeObject(responseBody); // Deserialize using Newtonsoft.Json
+            dynamic tokenResponse = JsonConvert.DeserializeObject(responseBody);
             string accessToken = tokenResponse.access_token;
 
             return accessToken;
