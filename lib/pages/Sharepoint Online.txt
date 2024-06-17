@@ -7,80 +7,83 @@ using Microsoft.SqlServer.Dts.Runtime;
 using Microsoft.SharePoint.Client;
 using Newtonsoft.Json; // Import Newtonsoft.Json
 
-public void Main()
+public partial class ScriptMain : Microsoft.SqlServer.Dts.Tasks.ScriptTask.VSTARTScriptObjectModelBase
 {
-    string siteUrl = "https://yoursharepointsite";
-    string documentLibraryName = "Shared Documents";
-    string localFilePath = @"C:\path\to\your\file.txt";
-    string sharePointFileName = "file.txt";
-    
-    string tenantId = "your-tenant-id";
-    string clientId = "your-client-id";
-    string clientSecret = "your-client-secret";
-    string resource = "https://yoursharepointsite";
-
-    try
+    public void Main()
     {
-        string accessToken = GetAccessToken(tenantId, clientId, clientSecret, resource).Result;
+        string siteUrl = "https://yoursharepointsite";
+        string documentLibraryName = "Shared Documents";
+        string localFilePath = @"C:\path\to\your\file.txt";
+        string sharePointFileName = "file.txt";
+        
+        string tenantId = "your-tenant-id";
+        string clientId = "your-client-id";
+        string clientSecret = "your-client-secret";
+        string resource = "https://yoursharepointsite";
 
-        using (ClientContext context = new ClientContext(siteUrl))
+        try
         {
-            context.ExecutingWebRequest += (sender, e) =>
-            {
-                e.WebRequestExecutor.WebRequest.Headers["Authorization"] = "Bearer " + accessToken;
-            };
+            string accessToken = GetAccessToken(tenantId, clientId, clientSecret, resource).Result;
 
-            Web web = context.Web;
-            List documentLibrary = web.Lists.GetByTitle(documentLibraryName);
-            context.Load(documentLibrary);
-            context.ExecuteQuery();
-            
-            using (FileStream fs = new FileStream(localFilePath, FileMode.Open))
+            using (ClientContext context = new ClientContext(siteUrl))
             {
-                FileCreationInformation fileInfo = new FileCreationInformation
+                context.ExecutingWebRequest += (sender, e) =>
                 {
-                    ContentStream = fs,
-                    Url = sharePointFileName,
-                    Overwrite = true
+                    e.WebRequestExecutor.WebRequest.Headers["Authorization"] = "Bearer " + accessToken;
                 };
-                
-                Microsoft.SharePoint.Client.File uploadFile = documentLibrary.RootFolder.Files.Add(fileInfo);
-                context.Load(uploadFile);
+
+                Web web = context.Web;
+                List documentLibrary = web.Lists.GetByTitle(documentLibraryName);
+                context.Load(documentLibrary);
                 context.ExecuteQuery();
                 
-                MessageBox.Show("File uploaded successfully.");
+                using (FileStream fs = new FileStream(localFilePath, FileMode.Open))
+                {
+                    FileCreationInformation fileInfo = new FileCreationInformation
+                    {
+                        ContentStream = fs,
+                        Url = sharePointFileName,
+                        Overwrite = true
+                    };
+                    
+                    Microsoft.SharePoint.Client.File uploadFile = documentLibrary.RootFolder.Files.Add(fileInfo);
+                    context.Load(uploadFile);
+                    context.ExecuteQuery();
+                    
+                    System.Windows.Forms.MessageBox.Show("File uploaded successfully.");
+                }
             }
+
+            Dts.TaskResult = (int)ScriptResults.Success;
         }
-
-        Dts.TaskResult = (int)ScriptResults.Success;
-    }
-    catch (Exception ex)
-    {
-        MessageBox.Show("Error: " + ex.Message);
-        Dts.TaskResult = (int)ScriptResults.Failure;
-    }
-}
-
-private async Task<string> GetAccessToken(string tenantId, string clientId, string clientSecret, string resource)
-{
-    using (HttpClient httpClient = new HttpClient())
-    {
-        var tokenEndpoint = $"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token";
-        var requestBody = new FormUrlEncodedContent(new[]
+        catch (Exception ex)
         {
-            new KeyValuePair<string, string>("client_id", clientId),
-            new KeyValuePair<string, string>("scope", $"{resource}/.default"),
-            new KeyValuePair<string, string>("client_secret", clientSecret),
-            new KeyValuePair<string, string>("grant_type", "client_credentials")
-        });
+            System.Windows.Forms.MessageBox.Show("Error: " + ex.Message);
+            Dts.TaskResult = (int)ScriptResults.Failure;
+        }
+    }
 
-        HttpResponseMessage response = await httpClient.PostAsync(tokenEndpoint, requestBody);
-        response.EnsureSuccessStatusCode();
-        string responseBody = await response.Content.ReadAsStringAsync();
+    private async Task<string> GetAccessToken(string tenantId, string clientId, string clientSecret, string resource)
+    {
+        using (HttpClient httpClient = new HttpClient())
+        {
+            var tokenEndpoint = $"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token";
+            var requestBody = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("client_id", clientId),
+                new KeyValuePair<string, string>("scope", $"{resource}/.default"),
+                new KeyValuePair<string, string>("client_secret", clientSecret),
+                new KeyValuePair<string, string>("grant_type", "client_credentials")
+            });
 
-        dynamic tokenResponse = JsonConvert.DeserializeObject(responseBody); // Deserialize using Newtonsoft.Json
-        string accessToken = tokenResponse.access_token;
+            HttpResponseMessage response = await httpClient.PostAsync(tokenEndpoint, requestBody);
+            response.EnsureSuccessStatusCode();
+            string responseBody = await response.Content.ReadAsStringAsync();
 
-        return accessToken;
+            dynamic tokenResponse = JsonConvert.DeserializeObject(responseBody); // Deserialize using Newtonsoft.Json
+            string accessToken = tokenResponse.access_token;
+
+            return accessToken;
+        }
     }
 }
