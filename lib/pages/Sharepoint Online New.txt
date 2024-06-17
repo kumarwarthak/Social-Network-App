@@ -1,0 +1,82 @@
+using System;
+using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Microsoft.SqlServer.Dts.Runtime;
+using Newtonsoft.Json;
+using System.Windows.Forms;
+
+[System.AddIn.AddIn("ScriptMain", Version = "1.0", Publisher = "", Description = "")]
+public partial class ScriptMain : Microsoft.SqlServer.Dts.Tasks.ScriptTask.VSTARTScriptObjectModelBase
+{
+    public void Main()
+    {
+        string siteUrl = "https://yoursharepointsite";
+        string documentLibraryName = "Shared Documents";
+        string localFilePath = @"C:\path\to\your\file.txt";
+        string sharePointFileName = "file.txt";
+        
+        string tenantId = "your-tenant-id";
+        string clientId = "your-client-id";
+        string clientSecret = "your-client-secret";
+        string resource = "https://yoursharepointsite";
+
+        try
+        {
+            string accessToken = GetAccessToken(tenantId, clientId, clientSecret, resource).GetAwaiter().GetResult();
+            UploadFileToSharePoint(siteUrl, documentLibraryName, localFilePath, sharePointFileName, accessToken).GetAwaiter().GetResult();
+
+            MessageBox.Show("File uploaded successfully.");
+            Dts.TaskResult = (int)ScriptResults.Success;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Error: " + ex.Message);
+            Dts.TaskResult = (int)ScriptResults.Failure;
+        }
+    }
+
+    private async Task<string> GetAccessToken(string tenantId, string clientId, string clientSecret, string resource)
+    {
+        using (HttpClient httpClient = new HttpClient())
+        {
+            var tokenEndpoint = $"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token";
+            var requestBody = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("client_id", clientId),
+                new KeyValuePair<string, string>("scope", $"{resource}/.default"),
+                new KeyValuePair<string, string>("client_secret", clientSecret),
+                new KeyValuePair<string, string>("grant_type", "client_credentials")
+            });
+
+            HttpResponseMessage response = await httpClient.PostAsync(tokenEndpoint, requestBody);
+            response.EnsureSuccessStatusCode();
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            dynamic tokenResponse = JsonConvert.DeserializeObject(responseBody);
+            string accessToken = tokenResponse.access_token;
+
+            return accessToken;
+        }
+    }
+
+    private async Task UploadFileToSharePoint(string siteUrl, string documentLibraryName, string localFilePath, string sharePointFileName, string accessToken)
+    {
+        using (HttpClient httpClient = new HttpClient())
+        {
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            string uploadUrl = $"{siteUrl}/_api/web/GetFolderByServerRelativeUrl('{documentLibraryName}')/Files/add(url='{sharePointFileName}',overwrite=true)";
+
+            using (var content = new StreamContent(File.OpenRead(localFilePath)))
+            {
+                content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+
+                HttpResponseMessage response = await httpClient.PostAsync(uploadUrl, content);
+                response.EnsureSuccessStatusCode();
+            }
+        }
+    }
+}
